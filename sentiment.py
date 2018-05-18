@@ -8,6 +8,8 @@ from tweepy import OAuthHandler
 from dotenv import load_dotenv, find_dotenv
 from collections import Counter
 from textblob import TextBlob
+import matplotlib.pyplot as plt
+
 
 class SentmentAnalysis:
 	def __init__(self):
@@ -27,10 +29,11 @@ class SentmentAnalysis:
 		except:
 			print("Error: Authentication Failed")
 
-	
+
 	def tweetTokenize(self, tweet):
 		tknzr = TweetTokenizer()
 		return (tknzr.tokenize(tweet))
+
 
 	def removeNoiseTweet(self, tweet):
 		#Convert to lower case
@@ -50,6 +53,7 @@ class SentmentAnalysis:
 		
 		return tweet 
 
+
 	def removeStopWords(self, tweet):
 		punctuation = list(string.punctuation)
 		tweet_token = self.tweetTokenize(tweet) 
@@ -59,23 +63,33 @@ class SentmentAnalysis:
 
 
 	def getData(self, hashtag):
-		tweet_list = []
+		tweetList = []
+		
+		for tweet in tweepy.Cursor(self.api.search, q=hashtag, lang="en").items(2000):
+			tweetList.append(tweet.text)
 
-		for tweet in tweepy.Cursor(self.api.search, q=hashtag, lang="en").items(100):
-			
-			clean_tweet = self.removeNoiseTweet(tweet.text)
-			noStopWords_tweet = self.removeStopWords(str(clean_tweet))
-
-			tweet_list.append([tweet for tweet in noStopWords_tweet])
-
-		return (tweet_list)
+		return (tweetList)
 
 
+	def printData(self, cleanTweetList, tweetList, pt, nt, ng):
+		
+		
+		for i in range(1, 2000):
+			print('==========================================')
+			print (tweetList[i], '\n')
+			print(cleanTweetList[i])
+			print('==========================================')
 
-	def printData(self, tweet_list):
-		for i in range(0, 100):
-			print (tweet_list[i])
+		# percentage of negative tweets
+		print("Positive tweets percentage: {0} %".format(100*(pt/2000)))
+	
+		# percentage of negative tweets
+		print("Negative tweets percentage: {0} %".format(100*(ng/2000)))
+		
+		# percentage of neutral tweets
+		print("Neutral tweets percentage: {0} %".format(100*(nt/2000)))
 
+	
 	def bagOfWords(self, tweet_list):
 		
 		#Transforma uma lista de listas em uma unica lista
@@ -88,48 +102,78 @@ class SentmentAnalysis:
 		
 		return flat_tweet_list
 
-	def get_sentiment(self, tweet_list):
+
+	def get_sentiment(self, tweet):
 		
-		tweet_str = ' '.join(tweet_list)
+		#transforma uma lista de tokens em uma unica string
+		tweet_str = ' '.join(tweet)
 		
+		#Cria um objeto textblob do tweet passado como parâmetro
 		blob = TextBlob(tweet_str)
 
-		if blob.sentiment.polarity > 0:
+		#Determina o sentimento do tweet
+		if (blob.sentiment.polarity > 0):
 			return 'positive'
-		elif blob.sentiment.polarity == 0:
+		elif (blob.sentiment.polarity == 0):
 			return 'neutral'
 		else:
 			return 'negative'
-		
+
+	
+	def showCategoricalData(self, pt, nt, ng, hashtag):
+		data = {
+			'Positive': pt,
+			'Negative': ng,
+			'Neutral': nt
+		}
+
+		names = list(data.keys())
+		values = list(data.values())
+
+		fig, axs = plt.subplots(figsize=(6, 3))
+		axs.bar(names, values)
+		fig.suptitle(hashtag)	
+		plt.xlabel("Sentimento")
+		plt.ylabel("Quantidade")
+		plt.show()
+
 def main():
 	
 	nsa = SentmentAnalysis()
-	get_tweet_list = nsa.getData(hashtag="#blackpanter")
-	get_bag = nsa.bagOfWords(get_tweet_list)
 	
 	pt = 0
 	nt = 0
 	ng = 0
-	
-	for i in range(0, 99):
-		
+	hashtag="#BestAdviceYourMomGave"
 
-		sentiment = nsa.get_sentiment(get_tweet_list[i])
+	cleanTweetList = []
+	tweetList = nsa.getData(hashtag)
+	
+	for tweet in tweetList:
+		cleanUpTweet = nsa.removeNoiseTweet(tweet)
+		cleanTweet = nsa.removeStopWords(cleanUpTweet)
+		cleanTweetList.append(cleanTweet)
+	
+	for i in range(1, 2000):
+		
+		sentiment = nsa.get_sentiment(cleanTweetList[i])
+		
 		if(sentiment == 'positive'):
+			tweetList[i] = 'Positive: '+ tweetList[i]
 			pt += 1
 		elif (sentiment == 'neutral'):
+			tweetList[i] = 'Neutral: '+ tweetList[i]
 			nt += 1
 		else:
+			tweetList[i] = 'Negative: '+ tweetList[i]
 			ng += 1
 
-	# percentagem of negative tweets
-	print("Positive tweets percentage: {0} %".format(100*(pt/100)))
+	nsa.showCategoricalData(pt, nt, ng, hashtag)
+	nsa.printData(cleanTweetList, tweetList, pt, nt, ng)
 	
-	# percentage of negative tweets
-	print("Negative tweets percentage: {0} %".format(100*(ng/100)))
-	# percentage of neutral tweets
-	print("Neutral tweets percentage: {0} %".format(100*(nt/100)))
-
-
 if __name__ == "__main__":
 	main()
+
+	#clean_tweet = self.removeNoiseTweet(tweet.text)
+	#noStopWords_tweet = self.removeStopWords(str(clean_tweet))
+	#tweet_list.append([tweet for tweet in noStopWords_tweet])
